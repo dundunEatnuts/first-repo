@@ -20,13 +20,18 @@ while true; do
     last_list=$(ls -1t $temp_dir/${folder//\//--}_current_*.txt | head -n 1)
 
     if [[ -f "$last_list" ]]; then
-      # 使用diff命令找出本次与上次相比缺少的文件
-      missing_files=$(diff -q "$last_list" "$current_list" | grep '<' | sed 's/.*< //')
-      if [[ -n "$missing_files" ]]; then
-        echo "[$(date)] Missing files in $folder:"
-        echo "$missing_files"
+      # 使用diff命令找出本次与上次相比的变化
+      changes=$(diff -u "$last_list" "$current_list")
+      
+      if [[ -n "$changes" ]]; then
+        echo "[$(date)] Changes detected in $folder:"
+        echo "$changes"
+        
+        # 打印当前目录下的文件列表
+        echo "Current files in $folder:"
+        cat "$current_list"
       else
-        echo "[$(date)] No files are missing in $folder."
+        echo "[$(date)] No changes detected in $folder."
       fi
     else
       echo "[$(date)] First time monitoring, no comparison for $folder."
