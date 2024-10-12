@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# 设置要监控的文件夹路径
+folders=("path/to/folder1" "path/to/folder2" "path/to/folder3")
+
+# 设置临时存储上次和当前文件列表的目录
+temp_dir="/tmp/monitor_files"
+mkdir -p "$temp_dir"
+
+while true; do
+  for folder in "${folders[@]}"; do
+    # 获取当前时间戳
+    current_time=$(date +%s)
+
+    # 创建当前文件列表
+    current_list="$temp_dir/${folder//\//--}_current_$current_time.txt"
+    ls -1A "$folder" > "$current_list"
+
+    # 查找上次的文件列表
+    last_list=$(ls -1t $temp_dir/${folder//\//--}_current_*.txt | head -n 1)
+
+    if [[ -f "$last_list" ]]; then
+      # 使用diff命令找出本次与上次相比缺少的文件
+      missing_files=$(diff -q "$last_list" "$current_list" | grep '<' | sed 's/.*< //')
+      if [[ -n "$missing_files" ]]; then
+        echo "[$(date)] Missing files in $folder:"
+        echo "$missing_files"
+      else
+        echo "[$(date)] No files are missing in $folder."
+      fi
+    else
+      echo "[$(date)] First time monitoring, no comparison for $folder."
+    fi
+  done
+
+  # 等待10秒
+  sleep 10
+done
