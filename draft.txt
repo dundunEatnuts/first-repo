@@ -30,13 +30,14 @@ while true; do
         # 打印当前目录下的文件列表
         echo "Current files in $folder:"
         cat "$current_list"
-      else
-        echo "[$(date)] No changes detected in $folder."
       fi
     else
       echo "[$(date)] First time monitoring, no comparison for $folder."
     fi
   done
+
+  # 清理旧的日志文件，只保留最新的3个
+  find "$temp_dir" -name "${folder//\//--}_current_*.txt" -type f -print0 | xargs -0 ls -1t | tail -n +4 | xargs -r rm -- 
 
   # 等待10秒
   sleep 10
