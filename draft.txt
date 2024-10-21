@@ -1,67 +1,47 @@
 #!/bin/bash
 
-# 设置要监控的文件夹路径
-folders=("path/to/folder1" "path/to/folder2" "path/to/folder3")
+# 检查是否提供了文件夹路径
+if [ -z "$1" ]; then
+  echo "Usage: $0 <directory>"
+  exit 1
+fi
 
-# 设置临时存储文件列表的目录
-temp_dir="/tmp/monitor_files"
-mkdir -p "$temp_dir"
+# 设置要统计的文件夹路径
+dir="$1"
 
-# 清理旧的日志文件，只保留最新的15个
-cleanup() {
-  for folder in "${folders[@]}"; do
-    find "$temp_dir" -name "${folder//\//--}_current_*.txt" -type f -print0 | xargs -0 ls -1t | tail -n +16 | xargs -r rm --
-  done
+# 创建一个临时文件来存储文件类型和文件名
+temp_file=$(mktemp)
+
+# 遍历文件夹中的所有文件并获取文件类型
+find "$dir" -type f -exec file --mime-type -b {} + | while IFS=: read -r filename mime_type; do
+  # 提取文件扩展名
+  ext="${filename##*.}"
+  if [ "$ext" = "$filename" ]; then
+    ext="no_extension"
+  fi
+
+  # 将文件类型和文件名写入临时文件
+  echo "$ext|$filename|$mime_type" >> "$temp_file"
+done
+
+# 统计每种文件类型的数量，并选择两个文件名作为例子
+awk -F'|' '
+{
+  types[$3]++
+  if (examples[$3,1] == "") {
+    examples[$3,1] = $2
+  } else if (examples[$3,2] == "" && $2 != examples[$3,1]) {
+    examples[$3,2] = $2
+  }
 }
-
-# 初始化：打印各个目录下当前存在的文件列表并创建初始日志
-initialize() {
-  for folder in "${folders[@]}"; do
-    current_time=$(date +%s)
-    current_list="$temp_dir/${folder//\//--}_current_$current_time.txt"
-    ls -1 "$folder" > "$current_list"
-    echo "[$(date)] Initial files in $folder:"
-    cat "$current_list"
-  done
+END {
+  print "Total number of file types: " length(types)
+  print "File types and examples:"
+  for (type in types) {
+    printf "%s (%d files): %s, %s\n", type, types[type], examples[type,1], examples[type,2]
+  }
 }
+' "$temp_file"
 
-# 监控函数
-monitor() {
-  while true; do
-    for folder in "${folders[@]}"; do
-      # 获取当前时间戳
-      current_time=$(date +%s)
-
-      # 创建当前文件列表
-      current_list="$temp_dir/${folder//\//--}_current_$current_time.txt"
-      ls -1 "$folder" > "$current_list"
-
-      # 查找上次的文件列表
-      last_list=$(ls -1t $temp_dir/${folder//\//--}_current_*.txt | head -n 1)
-
-      if [[ -f "$last_list" ]]; then
-        # 使用diff命令找出本次与上次相比的变化
-        changes=$(diff -u "$last_list" "$current_list")
-
-        if [[ -n "$changes" ]]; then
-          echo "[$(date)] Changes detected in $folder:"
-          echo "$changes"
-
-          # 打印当前目录下的文件列表
-          echo "Current files in $folder:"
-          cat "$current_list"
-        fi
-      fi
-    done
-
-    # 清理旧的日志文件，只保留最新的15个
-    cleanup
-
-    # 等待10秒
-    sleep 10
-  done
-}
-
-# 主程序
-initialize
-monitor
+# 删除临时文件
+rm "$temp_file"
