@@ -1,47 +1,21 @@
-#!/bin/bash
-
-# 检查是否提供了文件夹路径
-if [ -z "$1" ]; then
-  echo "Usage: $0 <directory>"
-  exit 1
-fi
-
-# 设置要统计的文件夹路径
-dir="$1"
-
-# 创建一个临时文件来存储文件类型和文件名
-temp_file=$(mktemp)
-
-# 遍历文件夹中的所有文件并获取文件类型
-find "$dir" -type f -exec file --mime-type -b {} + | while IFS=: read -r filename mime_type; do
-  # 提取文件扩展名
-  ext="${filename##*.}"
-  if [ "$ext" = "$filename" ]; then
-    ext="no_extension"
-  fi
-
-  # 将文件类型和文件名写入临时文件
-  echo "$ext|$filename|$mime_type" >> "$temp_file"
-done
-
-# 统计每种文件类型的数量，并选择两个文件名作为例子
-awk -F'|' '
-{
-  types[$3]++
-  if (examples[$3,1] == "") {
-    examples[$3,1] = $2
-  } else if (examples[$3,2] == "" && $2 != examples[$3,1]) {
-    examples[$3,2] = $2
-  }
-}
-END {
-  print "Total number of file types: " length(types)
-  print "File types and examples:"
-  for (type in types) {
-    printf "%s (%d files): %s, %s\n", type, types[type], examples[type,1], examples[type,2]
-  }
-}
-' "$temp_file"
-
-# 删除临时文件
-rm "$temp_file"
+SELECT 
+    s.*,
+    e.REP_ID,
+    e.INSTRID,
+    e.POOL_ID,
+    e.PARTICIPANT_ID,
+    e.TXT_STATUS,
+    e.LOTID,
+    e.REPORT_NAME,
+    e.REPORT_TYPE,
+    e.ERROR_MESSAGE,
+    e.GENERATION_DATE_TIME,
+    e.FILENAME,
+    e.ARCHIVED_FILE_LOCATION,
+    e.ACCOUNT_NUMBER,
+    e.HSBCNET_TRANSFER,
+    e.RFD_META_DATA_FILE_NAME
+FROM 
+    SNAPSHOT s
+LEFT JOIN 
+    EXEC_LOG e ON s.NBR_STRCID = e.STRUCTURE_ID AND s.NBR_SRCACCT = e.ACCOUNT_ID AND s.COD_GL = e.COD_GL AND s.COD_HSBCNETREPID = e.REPORT_CODE;
