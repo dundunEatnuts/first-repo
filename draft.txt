@@ -1,24 +1,67 @@
-SELECT
-  r1.REP_SEQ,
-  r1.NBR_STRCID,
-  r1.NBR_INSTRID,
-  r1.NBR_SRCACCT,
-  r1.COD_GL,
-  r1.COD_HSBCNETREPID,
-  r1.DAT_BUSINESS,
-  r2.STRUCTURE_ID,
-  r2.INSTRID,
-  r2.ACCOUNT_ID,
-  r2.REPORT_CODE,
-  r2.REPORT_TYPE,
-  r2.DAT_BUSINESS
-FROM
-  (SELECT * FROM 结果集1 WHERE DAT_BUSINESS = TO_DATE('22-oct-24', 'DD-mon-RR')) r1
-FULL OUTER JOIN
-  (SELECT * FROM 结果集2 WHERE STRUCTURE_ID IN ('12', '254', '5123') AND DAT_BUSINESS = TO_DATE('21-oct-24', 'DD-mon-RR')) r2
-ON
-  r1.NBR_STRCID = r2.STRUCTURE_ID
-  AND r1.NBR_INSTRID = r2.INSTRID
-  AND r1.NBR_SRCACCT = r2.ACCOUNT_ID
-  AND r1.COD_GL = r2.COD_GL
-  AND r1.COD_HSBCNETREPID = r2.REPORT_CODE;
+#!/bin/bash
+
+LOG_FILE="/home/user/MX_LEBD_Handling.log"
+
+# 清空日志文件
+> "$LOG_FILE"
+
+# 检查两个文件的内容
+check_files() {
+    local file1_content=$(cat "$1" | wc -l)
+    local file2_content=$(cat "$2" | wc -l)
+
+    if [[ $file1_content -eq 1 && $file2_content -eq 1 && $(diff <(cat "$1") <(cat "$2")) ]]; then
+        echo "Checking files before deletion..."
+        echo "Both files contain exactly one line and the content is identical:" >> "$LOG_FILE"
+        echo "Content of the files: $(cat "$1")" >> "$LOG_FILE"
+        echo "Checking files before deletion... Done" >> "$LOG_FILE"
+        return 0
+    else
+        echo "Files do not match or do not contain exactly one line." >> "$LOG_FILE"
+        return 1
+    fi
+}
+
+# 删除文件中的一行
+delete_line() {
+    echo "Deleting line from $1..."
+    > "$1"
+    echo "Deleted line from $1... Done" >> "$LOG_FILE"
+}
+
+# 检查指定目录下是否有且仅有一个符合模式的文件
+check_and_move_file() {
+    local files=$(ls "$1" | grep -E 'GLE.IN.HUBMX.PRD01.LEBD.*')
+    local count=$(echo "$files" | wc -w)
+
+    if [[ $count -eq 1 ]]; then
+        mv "$1/$files" "$2"
+        echo "Moved file $files to $2" >> "$LOG_FILE"
+        return 0
+    else
+        echo "Found $count files matching pattern, expected exactly one." >> "$LOG_FILE"
+        return 1
+    fi
+}
+
+# 文件路径
+file1="/controlM/logs/FileACK_BatchID_Log.txt"
+file2="/controlM/logs/RecACK_BatchID_Lo.gtxt"
+source_dir="/MX_D/MX_L/"
+target_dir="/genF/acc/"
+
+# 检查文件内容
+if check_files "$file1" "$file2"; then
+    # 删除文件中的一行
+    delete_line "$file1"
+    delete_line "$file2"
+    
+    # 检查并移动文件
+    if check_and_move_file "$source_dir" "$target_dir"; then
+        echo "Script completed successfully." >> "$LOG_FILE"
+    else
+        echo "Failed to move the file." >> "$LOG_FILE"
+    fi
+else
+    echo "Failed to verify the content of the files." >> "$LOG_FILE"
+fi
