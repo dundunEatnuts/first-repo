@@ -5,28 +5,49 @@ LOG_FILE="/home/user/MX_LEBD_Handling.log"
 # 清空日志文件
 > "$LOG_FILE"
 
-# 检查两个文件的内容
-check_files() {
-    local file1_content=$(cat "$1" | wc -l)
-    local file2_content=$(cat "$2" | wc -l)
+# 检查文件是否只有一行
+check_single_line() {
+    local file="$1"
+    local line_count=$(cat "$file" | wc -l)
 
-    if [[ $file1_content -eq 1 && $file2_content -eq 1 && $(diff <(cat "$1") <(cat "$2")) ]]; then
-        echo "Checking files before deletion..."
-        echo "Both files contain exactly one line and the content is identical:" >> "$LOG_FILE"
-        echo "Content of the files: $(cat "$1")" >> "$LOG_FILE"
-        echo "Checking files before deletion... Done" >> "$LOG_FILE"
+    if [[ $line_count -eq 1 ]]; then
+        echo "File $file contains exactly one line." >> "$LOG_FILE"
         return 0
     else
-        echo "Files do not match or do not contain exactly one line." >> "$LOG_FILE"
+        echo "File $file does not contain exactly one line." >> "$LOG_FILE"
         return 1
     fi
 }
 
-# 删除文件中的一行
+# 检查两个文件的内容是否相同
+check_content_match() {
+    local file1="$1"
+    local file2="$2"
+    local diff_output=$(diff <(cat "$file1") <(cat "$2"))
+
+    if [[ -z "$diff_output" ]]; then
+        echo "Content of both files $file1 and $file2 is identical." >> "$LOG_FILE"
+        return 0
+    else
+        echo "Content of files $file1 and $file2 is different." >> "$LOG_FILE"
+        return 1
+    fi
+}
+
+# 删除文件中的第一行
 delete_line() {
-    echo "Deleting line from $1..."
-    > "$1"
-    echo "Deleted line from $1... Done" >> "$LOG_FILE"
+    local file="$1"
+    local temp_file="${file}.tmp"
+    echo "Deleting first line from $file..."
+    # 使用 sed 保存到临时文件
+    sed '1d' "$file" > "$temp_file"
+    if [ $? -eq 0 ]; then
+        # 移动临时文件并删除原文件
+        mv "$temp_file" "$file"
+        echo "Deleted first line from $file... Done" >> "$LOG_FILE"
+    else
+        echo "Failed to delete first line from $file" >> "$LOG_FILE"
+    fi
 }
 
 # 检查指定目录下是否有且仅有一个符合模式的文件
@@ -50,18 +71,23 @@ file2="/controlM/logs/RecACK_BatchID_Lo.gtxt"
 source_dir="/MX_D/MX_L/"
 target_dir="/genF/acc/"
 
-# 检查文件内容
-if check_files "$file1" "$file2"; then
-    # 删除文件中的一行
-    delete_line "$file1"
-    delete_line "$file2"
-    
-    # 检查并移动文件
-    if check_and_move_file "$source_dir" "$target_dir"; then
-        echo "Script completed successfully." >> "$LOG_FILE"
+# 检查文件是否只有一行
+if check_single_line "$file1" && check_single_line "$file2"; then
+    # 检查两个文件的内容是否相同
+    if check_content_match "$file1" "$file2"; then
+        # 删除文件中的一行
+        delete_line "$file1"
+        delete_line "$file2"
+        
+        # 检查并移动文件
+        if check_and_move_file "$source_dir" "$target_dir"; then
+            echo "Script completed successfully." >> "$LOG_FILE"
+        else
+            echo "Failed to move the file." >> "$LOG_FILE"
+        fi
     else
-        echo "Failed to move the file." >> "$LOG_FILE"
+        echo "Failed to verify the content of the files." >> "$LOG_FILE"
     fi
 else
-    echo "Failed to verify the content of the files." >> "$LOG_FILE"
+    echo "Failed to verify the number of lines in the files." >> "$LOG_FILE"
 fi
