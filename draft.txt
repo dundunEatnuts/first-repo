@@ -1,1 +1,86 @@
-diff_result=$(diff <(cat /controlM/logs/FileACK_BatchID_Log.txt) <(cat /controlM/logs/RecACK_BatchID_Lo.gtxt)); [ -z "$diff_result" ] && echo "Files are identical." || (echo "Files are different."; echo "$diff_result"); cat /controlM/logs/FileACK_BatchID_Log.txt; cat /controlM/logs/RecACK_BatchID_Lo.gtxt
+#!/bin/bash
+
+# 检查参数数量是否正确
+if [ "$#" -ne 3 ]; then
+    echo "Usage: $0 <oracle1_password> <oracle2_password> <pgdb_password>"
+    exit 1
+fi
+
+# 硬编码的账号信息和其他连接信息
+ORACLE1_USER="your_oracle1_user"
+ORACLE2_USER="your_oracle2_user"
+PGDB_USER="your_pgdb_user"
+
+ORACLE_HOST="your_oracle_host"
+ORACLE_PORT="1521" # Oracle 默认端口
+ORACLE_SERVICE_NAME="your_oracle_service_name"
+
+PGDB_HOST="your_pgdb_host"
+PGDB_PORT="5432" # PostgreSQL 默认端口
+PGDB_DBNAME="your_pgdb_dbname"
+
+# 获取传递的参数
+ORACLE1_PASSWORD=$1
+ORACLE2_PASSWORD=$2
+PGDB_PASSWORD=$3
+
+# 定义输出文件
+OUTPUT_FILE="combined_results.csv"
+
+# 清空或创建输出文件
+> $OUTPUT_FILE
+
+# 函数：运行SQL并追加到输出文件
+run_sql() {
+    local sql_file=$1
+    local db_type=$2
+    local user=$3
+    local password=$4
+    local host=$5
+    local port=$6
+    local service_name=$7
+
+    case $db_type in
+        oracle)
+            sqlplus -S ${user}/${password}@${host}:${port}/${service_name} << EOF >> $OUTPUT_FILE
+SET HEADING ON
+SET FEEDBACK OFF
+SET PAGESIZE 0
+SET COLSEP ','
+@${sql_file}
+EOF
+            ;;
+        postgres)
+            psql -h ${host} -p ${port} -U ${user} -d ${service_name} -c "\copy (SELECT * FROM (${cat ${sql_file}}) AS sub) TO STDOUT WITH CSV HEADER" >> $OUTPUT_FILE
+            ;;
+        *)
+            echo "Unknown database type: $db_type"
+            exit 1
+            ;;
+    esac
+
+    # 在每次查询后添加空行
+    echo "" >> $OUTPUT_FILE
+}
+
+# 定义要执行的SQL文件路径
+ORACLE1_SQL_FILES=("path/to/oracle1_query1.sql" "path/to/oracle1_query2.sql" "path/to/oracle1_query3.sql")
+ORACLE2_SQL_FILES=("path/to/oracle2_query1.sql")
+PGDB_SQL_FILES=("path/to/pgdb_query1.sql" "path/to/pgdb_query2.sql")
+
+# 执行Oracle1的SQL文件
+for sql_file in "${ORACLE1_SQL_FILES[@]}"; do
+    run_sql "$sql_file" "oracle" "$ORACLE1_USER" "$ORACLE1_PASSWORD" "$ORACLE_HOST" "$ORACLE_PORT" "$ORACLE_SERVICE_NAME"
+done
+
+# 执行Oracle2的SQL文件
+for sql_file in "${ORACLE2_SQL_FILES[@]}"; do
+    run_sql "$sql_file" "oracle" "$ORACLE2_USER" "$ORACLE2_PASSWORD" "$ORACLE_HOST" "$ORACLE_PORT" "$ORACLE_SERVICE_NAME"
+done
+
+# 执行PostgreSQL的SQL文件
+for sql_file in "${PGDB_SQL_FILES[@]}"; do
+    run_sql "$sql_file" "postgres" "$PGDB_USER" "$PGDB_PASSWORD" "$PGDB_HOST" "$PGDB_PORT" "$PGDB_DBNAME"
+done
+
+echo "All queries executed and results saved to $OUTPUT_FILE"
