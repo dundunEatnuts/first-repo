@@ -12,13 +12,13 @@ PGDB_PASSWORD=$2
 # Database connection information
 ORACLE1_HOST="oracle1_host"
 ORACLE1_PORT="1521"
-ORACLE1_SID="orcl1"
+ORACLE1_SERVICE_NAME="orcl1_service_name"
 ORACLE1_USER="oracle1_user"
 ORACLE1_PASSWORD="oracle1_password"
 
 ORACLE2_HOST="oracle2_host"
 ORACLE2_PORT="1521"
-ORACLE2_SID="orcl2"
+ORACLE2_SERVICE_NAME="orcl2_service_name"
 ORACLE2_USER="oracle2_user"
 ORACLE2_PASSWORD="oracle2_password"
 
@@ -39,14 +39,18 @@ run_oracle_query() {
     local sql_file=$1
     local host=$2
     local port=$3
-    local sid=$4
+    local service_name=$4
     local user=$5
     local password=$6
-    sqlplus -S ${user}/${password}@${host}:${port}/${sid} << EOF >> $OUTPUT_FILE
+    # Use Easy Connect naming method with Service Name
+    sqlplus -S ${user}/${password}@${host}:${port}/${service_name} << EOF >> $OUTPUT_FILE
 set colsep ','
 set pagesize 0
 set feedback off
 set heading on
+set trimspool on
+set trimout on
+set linesize 32767
 @$sql_file
 EOF
 }
@@ -59,7 +63,7 @@ run_pg_query() {
     local host=$4
     local port=$5
     local dbname=$6
-    PGPASSWORD=${password} psql -h ${host} -p ${port} -d ${dbname} -U ${user} -f ${sql_file} -A -F',' --no-align -t >> $OUTPUT_FILE
+    PGPASSWORD=${password} psql -h ${host} -p ${port} -d ${dbname} -U ${user} -f ${sql_file} -A -F',' --no-align -t -P footer=off >> $OUTPUT_FILE
 }
 
 # Clear output file before starting
@@ -67,13 +71,13 @@ run_pg_query() {
 
 # Run Oracle1 queries
 for sql_file in "${ORACLE1_SQL_FILES[@]}"; do
-    run_oracle_query $sql_file $ORACLE1_HOST $ORACLE1_PORT $ORACLE1_SID $ORACLE1_USER $ORACLE1_PASSWORD
+    run_oracle_query $sql_file $ORACLE1_HOST $ORACLE1_PORT $ORACLE1_SERVICE_NAME $ORACLE1_USER $ORACLE1_PASSWORD
     echo "" >> $OUTPUT_FILE # Add a blank line between results
 done
 
 # Run Oracle2 queries
 for sql_file in "${ORACLE2_SQL_FILES[@]}"; do
-    run_oracle_query $sql_file $ORACLE2_HOST $ORACLE2_PORT $ORACLE2_SID $ORACLE2_USER $ORACLE2_PASSWORD
+    run_oracle_query $sql_file $ORACLE2_HOST $ORACLE2_PORT $ORACLE2_SERVICE_NAME $ORACLE2_USER $ORACLE2_PASSWORD
     echo "" >> $OUTPUT_FILE # Add a blank line between results
 done
 
