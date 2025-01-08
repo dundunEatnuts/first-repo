@@ -1,90 +1,60 @@
 #!/bin/bash
 
-# Check if the correct number of arguments is given
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <pgdb_username> <pgdb_password>"
-    exit 1
-fi
+# 获取当前时间用于计算处理耗时
+start_time=$(date +%s)
 
-PGDB_USER=$1
-PGDB_PASSWORD=$2
+# 输入文件和输出文件
+input_file="$1"
+output_file="$2"
 
-# Database connection information
-ORACLE1_HOST="oracle1_host"
-ORACLE1_PORT="1521"
-ORACLE1_SERVICE_NAME="orcl1_service_name"
-ORACLE1_USER="oracle1_user"
-ORACLE1_PASSWORD="oracle1_password"
+# 创建一个临时文件用于存储输出
+temp_file=$(mktemp)
 
-ORACLE2_HOST="oracle2_host"
-ORACLE2_PORT="1521"
-ORACLE2_SERVICE_NAME="orcl2_service_name"
-ORACLE2_USER="oracle2_user"
-ORACLE2_PASSWORD="oracle2_password"
+# 删除模式标志
+delete_mode=false
 
-PGDB_HOST="pgdb_host"
-PGDB_PORT="5432"
-PGDB_DBNAME="pgdb_dbname"
+# 遍历输入文件的每一行
+while IFS= read -r line
+do
+    # 如果行以 :61: 开头，处理日期
+    if [[ "$line" =~ ^:61: ]]; then
+        postingdate="${line:6:4}"
+        currentdate="${line:10:4}"
+        echo "Found :61: line, postingdate=$postingdate, currentdate=$currentdate"
 
-# SQL files paths
-ORACLE1_SQL_FILES=("sql/oracle1_query1.sql" "sql/oracle1_query2.sql" "sql/oracle1_query3.sql")
-ORACLE2_SQL_FILES=("sql/oracle2_query1.sql")
-PGDB_SQL_FILES=("sql/pgdb_query1.sql" "sql/pgdb_query2.sql")
+        # 判断 postingdate 和 currentdate 是否相等
+        if [[ "$postingdate" == "$currentdate" ]]; then
+            # 如果相等，进入删除模式，跳过该行
+            if [[ "$delete_mode" == false ]]; then
+                delete_mode=true
+                echo "Entering delete mode. Deleting this line and subsequent lines until next :61: or :62: line."
+            fi
+            continue
+        fi
+    fi
 
-# Output file
-OUTPUT_FILE="output.csv"
+    # 如果处于删除模式，检查是否遇到下一个 :61: 或 :62: 行
+    if [[ "$delete_mode" == true ]]; then
+        if [[ "$line" =~ ^:61: || "$line" =~ ^:62: ]]; then
+            delete_mode=false
+            echo "Exit delete mode."
+        fi
+        # 跳过删除模式中的行
+        continue
+    fi
 
-# Function to run Oracle queries and save to CSV
-run_oracle_query() {
-    local sql_file=$1
-    local host=$2
-    local port=$3
-    local service_name=$4
-    local user=$5
-    local password=$6
-    # Use Easy Connect naming method with Service Name
-    sqlplus -S ${user}/${password}@${host}:${port}/${service_name} << EOF >> $OUTPUT_FILE
-set colsep ','
-set pagesize 0
-set feedback off
-set heading on
-set trimspool on
-set trimout on
-set linesize 32767
-@$sql_file
-EOF
-}
+    # 将非删除的行写入临时文件
+    echo "$line" >> "$temp_file"
+done < "$input_file"
 
-# Function to run PostgreSQL queries and save to CSV
-run_pg_query() {
-    local sql_file=$1
-    local user=$2
-    local password=$3
-    local host=$4
-    local port=$5
-    local dbname=$6
-    PGPASSWORD=${password} psql -h ${host} -p ${port} -d ${dbname} -U ${user} -f ${sql_file} -A -F',' --no-align -t -P footer=off >> $OUTPUT_FILE
-}
+# 将临时文件内容写入输出文件
+mv "$temp_file" "$output_file"
 
-# Clear output file before starting
-> $OUTPUT_FILE
+# 获取结束时间并计算耗时
+end_time=$(date +%s)
+elapsed_time=$((end_time - start_time))
 
-# Run Oracle1 queries
-for sql_file in "${ORACLE1_SQL_FILES[@]}"; do
-    run_oracle_query $sql_file $ORACLE1_HOST $ORACLE1_PORT $ORACLE1_SERVICE_NAME $ORACLE1_USER $ORACLE1_PASSWORD
-    echo "" >> $OUTPUT_FILE # Add a blank line between results
-done
-
-# Run Oracle2 queries
-for sql_file in "${ORACLE2_SQL_FILES[@]}"; do
-    run_oracle_query $sql_file $ORACLE2_HOST $ORACLE2_PORT $ORACLE2_SERVICE_NAME $ORACLE2_USER $ORACLE2_PASSWORD
-    echo "" >> $OUTPUT_FILE # Add a blank line between results
-done
-
-# Run PostgreSQL queries
-for sql_file in "${PGDB_SQL_FILES[@]}"; do
-    run_pg_query $sql_file $PGDB_USER $PGDB_PASSWORD $PGDB_HOST $PGDB_PORT $PGDB_DBNAME
-    echo "" >> $OUTPUT_FILE # Add a blank line between results
-done
-
-echo "All queries have been executed and saved to $OUTPUT_FILE."
+# 打印开始时间、结束时间以及耗时
+echo "Process started at: $(date -d @$start_time)"
+echo "Process ended at: $(date -d @$end_time)"
+echo "Total time taken: $((elapsed_time / 60)) minutes $((elapsed_time % 60)) seconds"
