@@ -29,6 +29,8 @@ do
                 delete_mode=true
                 echo "Entering delete mode. Deleting this line and subsequent lines until next :61: or :62: line."
             fi
+            # 打印被删除的行
+            echo "Deleting line: $line"
             continue
         fi
     fi
@@ -39,7 +41,8 @@ do
             delete_mode=false
             echo "Exit delete mode."
         fi
-        # 跳过删除模式中的行
+        # 打印被删除的行
+        echo "Deleting line: $line"
         continue
     fi
 
@@ -47,12 +50,8 @@ do
     echo "$line" >> "$temp_file"
 done < "$input_file"
 
-# 将临时文件内容写入输出文件，并确保使用 UNIX 行结束符
-# 这里使用 `dos2unix` 命令将输出文件转换为 UNIX 格式
-dos2unix "$temp_file" > "$output_file"
-
-# 删除临时文件
-rm "$temp_file"
+# 将临时文件内容写入输出文件
+mv "$temp_file" "$output_file"
 
 # 获取结束时间并计算耗时
 end_time=$(date +%s)
