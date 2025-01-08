@@ -6,12 +6,16 @@ start_time=$(date +%s)
 # 输入文件和输出文件
 input_file="$1"
 output_file="$2"
+deleted_file="deleted_lines.txt"  # 删除的行保存到这个文件
 
 # 创建一个临时文件用于存储输出
 temp_file=$(mktemp)
 
 # 删除模式标志
 delete_mode=false
+
+# 清空删除文件，确保每次运行脚本时都是新的
+> "$deleted_file"
 
 # 遍历输入文件的每一行
 while IFS= read -r line
@@ -29,8 +33,9 @@ do
                 delete_mode=true
                 echo "Entering delete mode. Deleting this line and subsequent lines until next :61: or :62: line."
             fi
-            # 打印被删除的行
+            # 打印被删除的行，并保存到删除文件
             echo "Deleting line: $line"
+            echo "$line" >> "$deleted_file"
             continue
         fi
     fi
@@ -40,10 +45,13 @@ do
         # 只退出删除模式，如果遇到下一个 :61: 或 :62: 行
         if [[ "$line" =~ ^:61: || "$line" =~ ^:62: ]]; then
             delete_mode=false
+            # 将该行输出到输出文件
+            echo "$line" >> "$temp_file"
             echo "Exit delete mode."
         fi
-        # 打印被删除的行
+        # 打印被删除的行，并保存到删除文件
         echo "Deleting line: $line"
+        echo "$line" >> "$deleted_file"
         continue
     fi
 
