@@ -35,8 +35,9 @@ do
         fi
     fi
 
-    # 如果处于删除模式，检查是否遇到下一个 :61: 或 :62: 行
+    # 如果处于删除模式
     if [[ "$delete_mode" == true ]]; then
+        # 只退出删除模式，如果遇到下一个 :61: 或 :62: 行
         if [[ "$line" =~ ^:61: || "$line" =~ ^:62: ]]; then
             delete_mode=false
             echo "Exit delete mode."
