@@ -1,72 +1,74 @@
 #!/bin/bash
 
-# 获取当前时间用于计算处理耗时
-start_time=$(date +%s)
+# 设置输入文件和输出文件
+input_file="input.txt"     # 请将这里的 "input.txt" 修改为你的输入文件路径
+retained_file="retained.txt"  # 保留的内容输出到这个文件
+deleted_file="deleted.txt"   # 被删除的内容输出到这个文件
 
-# 输入文件和输出文件
-input_file="$1"
-output_file="$2"
-deleted_file="deleted_lines.txt"  # 删除的行保存到这个文件
-
-# 创建一个临时文件用于存储输出
-temp_file=$(mktemp)
-
-# 删除模式标志
+# 用于标记是否处于删除模式
 delete_mode=false
 
-# 清空删除文件，确保每次运行脚本时都是新的
-> "$deleted_file"
+# 开始时间
+start_time=$(date +%s)
 
-# 遍历输入文件的每一行
-while IFS= read -r line
-do
-    # 如果行以 :61: 开头，处理日期
-    if [[ "$line" =~ ^:61: ]]; then
-        postingdate="${line:6:4}"
-        currentdate="${line:10:4}"
-        echo "Found :61: line, postingdate=$postingdate, currentdate=$currentdate"
-
-        # 判断 postingdate 和 currentdate 是否相等
-        if [[ "$postingdate" == "$currentdate" ]]; then
-            # 如果相等，进入删除模式，跳过该行
-            if [[ "$delete_mode" == false ]]; then
+# 创建输出文件并开始逐行处理
+{
+    while IFS= read -r line; do
+        # 如果当前行是以:61:开头
+        if [[ "$line" == :61:* ]]; then
+            # 提取postingdate和currentdate
+            postingdate=$(echo "$line" | cut -c7-10)
+            currentdate=$(echo "$line" | cut -c11-14)
+            
+            # 打印这两个日期
+            echo "Posting Date: $postingdate, Current Date: $currentdate"
+            
+            # 判断日期是否相等
+            if [ "$postingdate" == "$currentdate" ]; then
+                # 如果相等，进入删除模式并写入到删除文件
+                echo "Dates are equal, entering delete mode and deleting this line"
                 delete_mode=true
-                echo "Entering delete mode. Deleting this line and subsequent lines until next :61: or :62: line."
+                echo "$line" >> "$deleted_file"  # 写入到删除文件
+            else
+                # 如果日期不相等并且处于删除模式，退出删除模式
+                if [ "$delete_mode" == true ]; then
+                    echo "Dates are not equal, exiting delete mode"
+                    delete_mode=false
+                fi
+                # 如果不在删除模式，保留当前行并写入保留文件
+                if [ "$delete_mode" == false ]; then
+                    echo "$line" >> "$retained_file"
+                fi
             fi
-            # 打印被删除的行，并保存到删除文件
-            echo "Deleting line: $line"
-            echo "$line" >> "$deleted_file"
-            continue
+        elif [[ "$line" == :62F:* ]]; then
+            # 如果是以:62F:开头，退出删除模式并保留当前行
+            if [ "$delete_mode" == true ]; then
+                echo "Encountered :62F:, exiting delete mode"
+                delete_mode=false
+            fi
+            # 保留当前行并写入保留文件
+            echo "$line" >> "$retained_file"
+        else
+            # 如果不在删除模式，保留当前行
+            if [ "$delete_mode" == false ]; then
+                echo "$line" >> "$retained_file"
+            else
+                # 如果在删除模式，写入到删除文件
+                echo "$line" >> "$deleted_file"
+            fi
         fi
-    fi
+    done
+} < "$input_file"
 
-    # 如果处于删除模式
-    if [[ "$delete_mode" == true ]]; then
-        # 只退出删除模式，如果遇到下一个 :61: 或 :62: 行
-        if [[ "$line" =~ ^:61: || "$line" =~ ^:62: ]]; then
-            delete_mode=false
-            # 将该行输出到输出文件
-            echo "$line" >> "$temp_file"
-            echo "Exit delete mode."
-        fi
-        # 打印被删除的行，并保存到删除文件
-        echo "Deleting line: $line"
-        echo "$line" >> "$deleted_file"
-        continue
-    fi
-
-    # 将非删除的行写入临时文件
-    echo "$line" >> "$temp_file"
-done < "$input_file"
-
-# 将临时文件内容写入输出文件
-mv "$temp_file" "$output_file"
-
-# 获取结束时间并计算耗时
+# 结束时间
 end_time=$(date +%s)
-elapsed_time=$((end_time - start_time))
 
-# 打印开始时间、结束时间以及耗时
-echo "Process started at: $(date -d @$start_time)"
-echo "Process ended at: $(date -d @$end_time)"
-echo "Total time taken: $((elapsed_time / 60)) minutes $((elapsed_time % 60)) seconds"
+# 计算时间差
+elapsed=$((end_time - start_time))
+elapsed_minutes=$((elapsed / 60))
+elapsed_seconds=$((elapsed % 60))
+
+# 打印时间
+echo "Start time: $(date -d @$start_time)"
+echo "End time: $(date -d @$end_time)"
+echo "Elapsed time: $elapsed_minutes minutes and $elapsed_seconds seconds"
