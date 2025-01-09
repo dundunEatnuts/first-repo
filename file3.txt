@@ -1,4 +1,5 @@
 import java.io.*;
+import java.nio.charset.*;
 import java.nio.file.*;
 import java.util.*;
 import java.text.*;
@@ -22,12 +23,19 @@ public class FileProcessor {
 
         // 使用 try-with-resources 来确保文件流正确关闭
         try (
-            BufferedReader reader = Files.newBufferedReader(Paths.get(inputFile));
-            BufferedWriter retainedWriter = Files.newBufferedWriter(Paths.get(retainedFile));
-            BufferedWriter deletedWriter = Files.newBufferedWriter(Paths.get(deletedFile))
+            // 使用 UTF-8 编码并容错处理（如果解码失败会用替代字符）
+            BufferedReader reader = Files.newBufferedReader(Paths.get(inputFile), StandardCharsets.UTF_8);
+            BufferedWriter retainedWriter = Files.newBufferedWriter(Paths.get(retainedFile), StandardCharsets.UTF_8);
+            BufferedWriter deletedWriter = Files.newBufferedWriter(Paths.get(deletedFile), StandardCharsets.UTF_8)
         ) {
             String line;
             while ((line = reader.readLine()) != null) {
+                // 跳过二进制数据（例如，包含控制字符的行）
+                if (isBinaryData(line)) {
+                    System.out.println("Skipping binary data: " + line);
+                    continue;
+                }
+
                 // 如果当前行是以:61:开头
                 if (line.startsWith(":61:")) {
                     String postingDate = line.substring(6, 10);
@@ -91,6 +99,17 @@ public class FileProcessor {
         System.out.println("Start time: " + formatTime(startTime));
         System.out.println("End time: " + formatTime(endTime));
         System.out.println("Elapsed time: " + elapsedMinutes + " minutes and " + elapsedSeconds + " seconds");
+    }
+
+    // 检测是否为二进制数据（判断是否包含不可打印字符）
+    private static boolean isBinaryData(String line) {
+        // 判断是否有非打印字符，例如 ASCII 码小于32或大于126
+        for (char c : line.toCharArray()) {
+            if (c < 32 || c > 126) {
+                return true; // 包含非打印字符，认为是二进制数据
+            }
+        }
+        return false;
     }
 
     // 时间格式化方法
