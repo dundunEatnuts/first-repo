@@ -23,8 +23,7 @@ public class FileProcessor {
 
         // 使用 try-with-resources 来确保文件流正确关闭
         try (
-            // 使用 UTF-8 编码并容错处理（如果解码失败会用替代字符）
-            BufferedReader reader = Files.newBufferedReader(Paths.get(inputFile), StandardCharsets.UTF_8);
+            BufferedReader reader = getReader(inputFile);
             BufferedWriter retainedWriter = Files.newBufferedWriter(Paths.get(retainedFile), StandardCharsets.UTF_8);
             BufferedWriter deletedWriter = Files.newBufferedWriter(Paths.get(deletedFile), StandardCharsets.UTF_8)
         ) {
@@ -99,6 +98,22 @@ public class FileProcessor {
         System.out.println("Start time: " + formatTime(startTime));
         System.out.println("End time: " + formatTime(endTime));
         System.out.println("Elapsed time: " + elapsedMinutes + " minutes and " + elapsedSeconds + " seconds");
+    }
+
+    // 通过多种编码格式读取文件
+    private static BufferedReader getReader(String inputFile) throws IOException {
+        List<String> encodings = Arrays.asList("UTF-8", "ISO-8859-1", "Windows-1252", "UTF-16");
+
+        for (String encoding : encodings) {
+            try {
+                return new BufferedReader(new InputStreamReader(Files.newInputStream(Paths.get(inputFile)), encoding));
+            } catch (UnsupportedEncodingException e) {
+                System.out.println("Unsupported encoding: " + encoding + ". Trying next...");
+            }
+        }
+
+        // 如果没有匹配的编码，抛出异常
+        throw new IOException("Unable to detect appropriate encoding for file: " + inputFile);
     }
 
     // 检测是否为二进制数据（判断是否包含不可打印字符）
