@@ -1,1 +1,102 @@
-have you combo 3 in one click?
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+import java.text.*;
+
+public class FileProcessor {
+
+    public static void main(String[] args) {
+        // 输入和输出文件路径
+        String inputFile = "input.txt";
+        String retainedFile = "retained.txt";
+        String deletedFile = "deleted.txt";
+
+        // 用于标记是否处于删除模式
+        boolean deleteMode = false;
+
+        // 时间格式化器
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+
+        // 开始时间
+        long startTime = System.currentTimeMillis();
+
+        // 使用 try-with-resources 来确保文件流正确关闭
+        try (
+            BufferedReader reader = Files.newBufferedReader(Paths.get(inputFile));
+            BufferedWriter retainedWriter = Files.newBufferedWriter(Paths.get(retainedFile));
+            BufferedWriter deletedWriter = Files.newBufferedWriter(Paths.get(deletedFile))
+        ) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                // 如果当前行是以:61:开头
+                if (line.startsWith(":61:")) {
+                    String postingDate = line.substring(6, 10);
+                    String currentDate = line.substring(10, 14);
+
+                    System.out.println("Posting Date: " + postingDate + ", Current Date: " + currentDate);
+
+                    // 判断日期是否相等
+                    if (postingDate.equals(currentDate)) {
+                        // 如果相等，进入删除模式并写入到删除文件
+                        System.out.println("Dates are equal, entering delete mode and deleting this line");
+                        deleteMode = true;
+                        deletedWriter.write(line);
+                        deletedWriter.newLine();
+                    } else {
+                        // 如果日期不相等并且处于删除模式，退出删除模式
+                        if (deleteMode) {
+                            System.out.println("Dates are not equal, exiting delete mode");
+                            deleteMode = false;
+                        }
+                        // 如果不在删除模式，保留当前行并写入保留文件
+                        if (!deleteMode) {
+                            retainedWriter.write(line);
+                            retainedWriter.newLine();
+                        }
+                    }
+                } else if (line.startsWith(":62F:")) {
+                    // 如果是以:62F:开头，退出删除模式并保留当前行
+                    if (deleteMode) {
+                        System.out.println("Encountered :62F:, exiting delete mode");
+                        deleteMode = false;
+                    }
+                    // 保留当前行并写入保留文件
+                    retainedWriter.write(line);
+                    retainedWriter.newLine();
+                } else {
+                    // 如果不在删除模式，保留当前行
+                    if (!deleteMode) {
+                        retainedWriter.write(line);
+                        retainedWriter.newLine();
+                    } else {
+                        // 如果在删除模式，写入到删除文件
+                        deletedWriter.write(line);
+                        deletedWriter.newLine();
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // 结束时间
+        long endTime = System.currentTimeMillis();
+
+        // 计算时间差
+        long elapsed = endTime - startTime;
+        long elapsedMinutes = elapsed / 60000;
+        long elapsedSeconds = (elapsed % 60000) / 1000;
+
+        // 打印时间
+        System.out.println("Start time: " + formatTime(startTime));
+        System.out.println("End time: " + formatTime(endTime));
+        System.out.println("Elapsed time: " + elapsedMinutes + " minutes and " + elapsedSeconds + " seconds");
+    }
+
+    // 时间格式化方法
+    private static String formatTime(long timeInMillis) {
+        Date date = new Date(timeInMillis);
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        return formatter.format(date);
+    }
+}
