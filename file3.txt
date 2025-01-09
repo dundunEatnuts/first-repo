@@ -7,16 +7,21 @@ import java.text.*;
 public class FileProcessor {
 
     public static void main(String[] args) {
-        // 输入和输出文件路径
-        String inputFile = "input.txt";
-        String retainedFile = "retained.txt";
-        String deletedFile = "deleted.txt";
+        // 检查参数数量是否正确
+        if (args.length != 2) {
+            System.err.println("Usage: java -jar FileProcessor.jar <inputFile> <outputFile>");
+            System.exit(1);
+        }
+
+        // 获取命令行传递的参数
+        String inputFile = args[0];       // 第一个参数：输入文件路径
+        String retainedFile = args[1];    // 第二个参数：输出文件路径
 
         // 用于标记是否处于删除模式
         boolean deleteMode = false;
-
-        // 时间格式化器
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        
+        // 控制是否保存删除内容
+        boolean saveDeletedContent = true;  // 默认保存删除的内容，若不需要保存，设置为 false
 
         // 开始时间
         long startTime = System.currentTimeMillis();
@@ -25,34 +30,27 @@ public class FileProcessor {
         try (
             BufferedReader reader = getReader(inputFile);
             BufferedWriter retainedWriter = Files.newBufferedWriter(Paths.get(retainedFile), StandardCharsets.UTF_8);
-            BufferedWriter deletedWriter = Files.newBufferedWriter(Paths.get(deletedFile), StandardCharsets.UTF_8)
+            BufferedWriter deletedWriter = saveDeletedContent ? Files.newBufferedWriter(Paths.get("deleted.txt"), StandardCharsets.UTF_8) : null
         ) {
             String line;
             while ((line = reader.readLine()) != null) {
-                // 跳过二进制数据（例如，包含控制字符的行）
-                if (isBinaryData(line)) {
-                    System.out.println("Skipping binary data: " + line);
-                    continue;
-                }
 
                 // 如果当前行是以:61:开头
                 if (line.startsWith(":61:")) {
                     String postingDate = line.substring(6, 10);
                     String currentDate = line.substring(10, 14);
 
-                    System.out.println("Posting Date: " + postingDate + ", Current Date: " + currentDate);
-
                     // 判断日期是否相等
                     if (postingDate.equals(currentDate)) {
                         // 如果相等，进入删除模式并写入到删除文件
-                        System.out.println("Dates are equal, entering delete mode and deleting this line");
+                        if (saveDeletedContent) {
+                            deletedWriter.write(line);
+                            deletedWriter.newLine();
+                        }
                         deleteMode = true;
-                        deletedWriter.write(line);
-                        deletedWriter.newLine();
                     } else {
                         // 如果日期不相等并且处于删除模式，退出删除模式
                         if (deleteMode) {
-                            System.out.println("Dates are not equal, exiting delete mode");
                             deleteMode = false;
                         }
                         // 如果不在删除模式，保留当前行并写入保留文件
@@ -64,7 +62,6 @@ public class FileProcessor {
                 } else if (line.startsWith(":62F:")) {
                     // 如果是以:62F:开头，退出删除模式并保留当前行
                     if (deleteMode) {
-                        System.out.println("Encountered :62F:, exiting delete mode");
                         deleteMode = false;
                     }
                     // 保留当前行并写入保留文件
@@ -77,8 +74,10 @@ public class FileProcessor {
                         retainedWriter.newLine();
                     } else {
                         // 如果在删除模式，写入到删除文件
-                        deletedWriter.write(line);
-                        deletedWriter.newLine();
+                        if (saveDeletedContent) {
+                            deletedWriter.write(line);
+                            deletedWriter.newLine();
+                        }
                     }
                 }
             }
@@ -114,17 +113,6 @@ public class FileProcessor {
 
         // 如果没有匹配的编码，抛出异常
         throw new IOException("Unable to detect appropriate encoding for file: " + inputFile);
-    }
-
-    // 检测是否为二进制数据（判断是否包含不可打印字符）
-    private static boolean isBinaryData(String line) {
-        // 判断是否有非打印字符，例如 ASCII 码小于32或大于126
-        for (char c : line.toCharArray()) {
-            if (c < 32 || c > 126) {
-                return true; // 包含非打印字符，认为是二进制数据
-            }
-        }
-        return false;
     }
 
     // 时间格式化方法
