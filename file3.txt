@@ -28,7 +28,7 @@ public class FileProcessor {
 
         // 使用 try-with-resources 来确保文件流正确关闭
         try (
-            BufferedReader reader = getReader(inputFile);
+            BufferedReader reader = getReader(inputFile);  // 使用ISO-8859-1编码读取文件
             BufferedWriter retainedWriter = Files.newBufferedWriter(Paths.get(retainedFile), StandardCharsets.UTF_8);
             BufferedWriter deletedWriter = saveDeletedContent ? Files.newBufferedWriter(Paths.get("deleted.txt"), StandardCharsets.UTF_8) : null
         ) {
@@ -99,20 +99,9 @@ public class FileProcessor {
         System.out.println("Elapsed time: " + elapsedMinutes + " minutes and " + elapsedSeconds + " seconds");
     }
 
-    // 通过多种编码格式读取文件
+    // 使用ISO-8859-1编码读取文件
     private static BufferedReader getReader(String inputFile) throws IOException {
-        List<String> encodings = Arrays.asList("UTF-8", "ISO-8859-1", "Windows-1252", "UTF-16");
-
-        for (String encoding : encodings) {
-            try {
-                return new BufferedReader(new InputStreamReader(Files.newInputStream(Paths.get(inputFile)), encoding));
-            } catch (UnsupportedEncodingException e) {
-                System.out.println("Unsupported encoding: " + encoding + ". Trying next...");
-            }
-        }
-
-        // 如果没有匹配的编码，抛出异常
-        throw new IOException("Unable to detect appropriate encoding for file: " + inputFile);
+        return new BufferedReader(new InputStreamReader(Files.newInputStream(Paths.get(inputFile)), StandardCharsets.ISO_8859_1));
     }
 
     // 时间格式化方法
