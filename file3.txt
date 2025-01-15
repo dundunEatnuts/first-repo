@@ -1,113 +1,61 @@
-import java.io.*;
-import java.nio.charset.*;
-import java.nio.file.*;
-import java.util.*;
-import java.text.*;
+### Meeting Minutes
 
-public class FileProcessor {
+**Meeting Title:** Project Requirements and Background Discussion  
+**Date:** [Insert Date Here]  
+**Time:** [Start Time] - [End Time]  
+**Location:** [Virtual/Physical Location]  
+**Host:** [Host's Name]  
+**Recorder:** [Your Name]
 
-    public static void main(String[] args) {
-        // 检查参数数量是否正确
-        if (args.length != 2) {
-            System.err.println("Usage: java -jar FileProcessor.jar <inputFile> <outputFile>");
-            System.exit(1);
-        }
+#### Attendees:
+- [Name], [Title]
+- Leon (E2E Architect)
+- Sean
+- [Other Attendees]
 
-        // 获取命令行传递的参数
-        String inputFile = args[0];       // 第一个参数：输入文件路径
-        String retainedFile = args[1];    // 第二个参数：输出文件路径
+#### Absentees:
+- [Names, if any]
 
-        // 用于标记是否处于删除模式
-        boolean deleteMode = false;
-        
-        // 控制是否保存删除内容
-        boolean saveDeletedContent = true;  // 默认保存删除的内容，若不需要保存，设置为 false
+---
 
-        // 开始时间
-        long startTime = System.currentTimeMillis();
+### Agenda and Discussion Points:
 
-        // 使用 try-with-resources 来确保文件流正确关闭
-        try (
-            BufferedReader reader = getReader(inputFile);  // 使用ISO-8859-1编码读取文件
-            BufferedWriter retainedWriter = Files.newBufferedWriter(Paths.get(retainedFile), StandardCharsets.UTF_8);
-            BufferedWriter deletedWriter = saveDeletedContent ? Files.newBufferedWriter(Paths.get("deleted.txt"), StandardCharsets.UTF_8) : null
-        ) {
-            String line;
-            while ((line = reader.readLine()) != null) {
+1. **Project Requirements and Background**
 
-                // 如果当前行是以:61:开头
-                if (line.startsWith(":61:")) {
-                    String postingDate = line.substring(6, 10);
-                    String currentDate = line.substring(10, 14);
+   The meeting began with a discussion on the project's requirements and background. Specifically, it was noted that the MA has mandated changes to the current notification content to ensure compliance with updated regulations.
 
-                    // 判断日期是否相等
-                    if (postingDate.equals(currentDate)) {
-                        // 如果相等，进入删除模式并写入到删除文件
-                        if (saveDeletedContent) {
-                            deletedWriter.write(line);
-                            deletedWriter.newLine();
-                        }
-                        deleteMode = true;
-                    } else {
-                        // 如果日期不相等并且处于删除模式，退出删除模式
-                        if (deleteMode) {
-                            deleteMode = false;
-                        }
-                        // 如果不在删除模式，保留当前行并写入保留文件
-                        if (!deleteMode) {
-                            retainedWriter.write(line);
-                            retainedWriter.newLine();
-                        }
-                    }
-                } else if (line.startsWith(":62F:")) {
-                    // 如果是以:62F:开头，退出删除模式并保留当前行
-                    if (deleteMode) {
-                        deleteMode = false;
-                    }
-                    // 保留当前行并写入保留文件
-                    retainedWriter.write(line);
-                    retainedWriter.newLine();
-                } else {
-                    // 如果不在删除模式，保留当前行
-                    if (!deleteMode) {
-                        retainedWriter.write(line);
-                        retainedWriter.newLine();
-                    } else {
-                        // 如果在删除模式，写入到删除文件
-                        if (saveDeletedContent) {
-                            deletedWriter.write(line);
-                            deletedWriter.newLine();
-                        }
-                    }
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+2. **Inquiry into Notification Trigger Mechanism**
 
-        // 结束时间
-        long endTime = System.currentTimeMillis();
+   dddd, the E2E Architect, inquired about how notifications are triggered, where they originate from, and the storage locations of data points. He also asked which system collects these data points and described the flow between different systems. Key systems mentioned included eiciras The functionalities and roles of these systems were elaborated upon to provide context for the data flow and processing mechanisms.
 
-        // 计算时间差
-        long elapsed = endTime - startTime;
-        long elapsedMinutes = elapsed / 60000;
-        long elapsedSeconds = (elapsed % 60000) / 1000;
+3. **Discussion on Proposed Solution**
 
-        // 打印时间
-        System.out.println("Start time: " + formatTime(startTime));
-        System.out.println("End time: " + formatTime(endTime));
-        System.out.println("Elapsed time: " + elapsedMinutes + " minutes and " + elapsedSeconds + " seconds");
-    }
+   A proposed solution was discussed, wherein the IPS would send data to dddddp for data enrichment before calling asdafd to issue messages. However, this solution requires further deliberation by both the CB Architect and the E2E Architect before reaching a definitive conclusion.
 
-    // 使用ISO-8859-1编码读取文件
-    private static BufferedReader getReader(String inputFile) throws IOException {
-        return new BufferedReader(new InputStreamReader(Files.newInputStream(Paths.get(inputFile)), StandardCharsets.ISO_8859_1));
-    }
+4. **Next Steps**
 
-    // 时间格式化方法
-    private static String formatTime(long timeInMillis) {
-        Date date = new Date(timeInMillis);
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        return formatter.format(date);
-    }
-}
+   Following the discussions, the group agreed on the following actions:
+   - asddddd will provide existing documentation to sdafdsf.
+   - asdfasd will then liaise with the CB Architect to evaluate the proposed solution or facilitate any additional internal discussions necessary for its assessment.
+
+---
+
+### Summary
+
+The meeting focused on understanding the compliance-driven changes required for notification content as per HKMA guidelines. Detailed inquiries into the trigger mechanism and data flow highlighted the complexity of the systems involved. While a potential solution was introduced, it was acknowledged that further input from key architects is essential before proceeding. The meeting concluded with an agreement on immediate next steps, ensuring that all parties are aligned and informed for future discussions.
+
+---
+
+**Action Items:**
+- **asdfasdf**: Provide existing documents to asdfasdf.
+- **asdfasdf**: Contact CB Architect for evaluation of the proposed solution or additional discussions.
+
+**Next Meeting:**
+- [Specify date/time if known, otherwise "To Be Determined"]
+
+---
+
+**Prepared by:** [Your Name]  
+**Reviewed by:** [Reviewers' Names]
+
+---
